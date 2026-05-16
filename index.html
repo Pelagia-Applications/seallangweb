@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SealLang - Online Compiler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-left">
+      <a class="nav-brand" href="#">
+        <span class="brand-icon">🦭</span>
+        <span class="brand-name">SealLang</span>
+        <span class="brand-sub">Online Compiler</span>
+      </a>
+    </div>
+    <div class="nav-right">
+      <span class="nav-link">Docs</span>
+      <span class="nav-link">Examples</span>
+      <span class="nav-link active">Playground</span>
+    </div>
+  </nav>
+
+  <div class="page">
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="lang-badge">
+          <span class="lang-icon">🦭</span>
+          <span>SealLang</span>
+          <span class="lang-version">v1.0</span>
+        </div>
+        <div class="toolbar-sep"></div>
+        <button class="btn btn-run" id="runBtn">
+          <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><path d="M0 0L10 6L0 12V0Z"/></svg>
+          Execute
+        </button>
+        <button class="btn btn-clear" id="clearBtn">Clear Output</button>
+        <div class="toolbar-sep"></div>
+        <label class="toolbar-label">Examples:</label>
+        <select class="select-picker" id="examplePicker">
+          <option value="">— Select —</option>
+          <option value="hello">Hello World</option>
+          <option value="loop">Loops &amp; Math</option>
+          <option value="pods">Pods (structs)</option>
+          <option value="funcs">Functions</option>
+          <option value="interp">String Interpolation</option>
+          <option value="fish">User Input (fish)</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run
+      </div>
+    </div>
+
+    <div class="workspace" id="workspace">
+
+      <div class="pane pane-editor" id="paneEditor">
+        <div class="pane-header">
+          <span class="pane-title">Source Code</span>
+          <span class="pane-meta">main.seal</span>
+        </div>
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">~ Welcome to SealLang! 🦭
+~ Comments use the tilde (~) symbol
+
+dive main() {
+    bark("a seal has entered the chat")
+
+    let x: int = 10
+    let y: int = 20
+
+    if x < y {
+        bark("x is smaller")
+    } else {
+        bark("y is smaller")
+    }
+
+    swim i in 0..5 {
+        bark(i)
+    }
+}
+</textarea>
+      </div>
+
+      <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
+
+      <div class="pane pane-output" id="paneOutput">
+        <div class="pane-header">
+          <span class="pane-title">Output / Result</span>
+          <span class="pane-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusMsg">Ready</span>
+          </span>
+        </div>
+        <div id="output"></div>
+        <div class="input-row" id="inputRow">
+          <span class="input-prompt-label" id="inputPromptLabel"></span>
+          <input type="text" id="userInput" placeholder="Enter value…" />
+          <button class="btn btn-enter" id="submitInput">Enter ↵</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="footbar">
+      <span>SealLang Web Interpreter</span>
+      <span class="sep">|</span>
+      <span>Keywords: dive · bark · swim · pod · surface · tide</span>
+      <span class="sep">|</span>
+      <span>Built-ins: fish · fish_int · fish_float</span>
+    </div>
+
+  </div>
+
+  <script src="interpreter.js"></script>
+</body>
+</html>
