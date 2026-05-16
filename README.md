@@ -1,4 +1,4 @@
-# SealLang 🦭
+# SealLang
 
 A programming language for when you want to code like a seal.
 
