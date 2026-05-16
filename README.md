@@ -16,4 +16,4 @@ Visit the web interpreter and start writing seal code. Pick an example if you're
 
 ---
 
-That's it. Happy coding. 🦭
+That's it. Happy coding.
