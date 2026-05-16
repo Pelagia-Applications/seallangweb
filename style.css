@@ -53,7 +53,7 @@ html, body {
   text-decoration: none;
   color: inherit;
 }
-.brand-icon { font-size: 1.3rem; }
+.brand-icon { width: 24px; height: 24px; display: block; }
 .brand-name {
   font-size: 1.05rem;
   font-weight: 700;
@@ -133,7 +133,7 @@ html, body {
   font-weight: 500;
   color: #dde;
 }
-.lang-icon { font-size: 1rem; }
+.lang-icon { width: 16px; height: 16px; display: block; }
 .lang-version {
   font-size: 0.68rem;
   color: var(--text-muted);
