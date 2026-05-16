@@ -600,4 +600,241 @@ class Interpreter {
   }
 }
 
-// UI glue stays the same
+// ---- UI GLUE ----
+
+const editor    = document.getElementById('editor');
+const outputEl  = document.getElementById('output');
+const runBtn    = document.getElementById('runBtn');
+const clearBtn  = document.getElementById('clearBtn');
+const picker    = document.getElementById('examplePicker');
+const inputRow  = document.getElementById('inputRow');
+const inputEl   = document.getElementById('userInput');
+const submitBtn = document.getElementById('submitInput');
+const statusMsg = document.getElementById('statusMsg');
+const statusDot = document.getElementById('statusDot');
+
+function addLine(text, cls = 'value') {
+  const div = document.createElement('div');
+  div.className = 'out-line ' + cls;
+  div.textContent = text;
+  outputEl.appendChild(div);
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
+
+function setStatus(msg, state = 'ok') {
+  statusMsg.textContent = msg;
+  statusDot.className = 'status-dot' + (state === 'ok' ? '' : ' ' + state);
+}
+
+function clearOutput() {
+  outputEl.innerHTML = '';
+}
+
+// ---- Async input for fish() ----
+let inputResolver = null;
+
+function requestInput(prompt) {
+  return new Promise(resolve => {
+    inputResolver = resolve;
+    document.getElementById('inputPromptLabel').textContent = prompt || '›';
+    inputRow.classList.add('visible');
+    inputEl.value = '';
+    inputEl.focus();
+    addLine(prompt, 'prompt-line');
+  });
+}
+
+function submitInput() {
+  if (!inputResolver) return;
+  const val = inputEl.value;
+  inputRow.classList.remove('visible');
+  addLine(val, 'info');
+  const resolve = inputResolver;
+  inputResolver = null;
+  resolve(val);
+}
+
+submitBtn.addEventListener('click', submitInput);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitInput();
+});
+
+// ---- Run ----
+async function runCode() {
+  clearOutput();
+  setStatus('Running…', 'running');
+  runBtn.disabled = true;
+
+  const src = editor.value;
+  try {
+    const tokens = lex(src);
+    const parser = new Parser(tokens);
+    const program = parser.parseProgram();
+
+    const interp = new Interpreter(
+      program,
+      (text, cls) => addLine(text, cls),
+      (prompt) => requestInput(prompt),
+    );
+
+    await interp.run();
+    addLine('Program finished successfully.', 'success');
+    setStatus('Success', 'ok');
+  } catch (e) {
+    addLine('Error: ' + e.message, 'error');
+    setStatus('Error', 'error');
+  }
+
+  runBtn.disabled = false;
+}
+
+runBtn.addEventListener('click', runCode);
+clearBtn.addEventListener('click', () => {
+  clearOutput();
+  setStatus('Ready', 'ok');
+});
+
+editor.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runCode();
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.slice(0, s) + '    ' + editor.value.slice(end);
+    editor.selectionStart = editor.selectionEnd = s + 4;
+  }
+});
+
+const EXAMPLES = {
+  hello: `~ Hello World in SealLang 🦭
+
+dive main() {
+    bark("a seal has entered the chat")
+
+    let x: int = 10
+    let y: int = 20
+
+    if x < y {
+        bark("x is smaller")
+    } else {
+        bark("y is smaller")
+    }
+
+    swim i in 0..5 {
+        bark(i)
+    }
+}`,
+  loop: `~ Loops and arithmetic
+
+dive main() {
+    let sum: int = 0
+    swim i in 1..11 {
+        sum = sum + i
+    }
+    bark("Sum 1..10 =")
+    bark(sum)
+
+    swim n in 0..8 {
+        bark(n * n)
+    }
+}`,
+  pods: `~ Pods are like structs
+
+pod Seal {
+    age: int,
+    weight: float
+}
+
+dive main() {
+    let s: Seal = Seal { age: 3, weight: 120.5 }
+    bark(s.age)
+    bark(s.weight)
+
+    mut t: Seal = Seal { age: 1, weight: 80.0 }
+    t.age = 2
+    bark(t.age)
+}`,
+  funcs: `~ Functions with surface (return)
+
+dive add(a: int, b: int) -> int {
+    surface a + b
+}
+
+dive greet(name: str) {
+    bark("Hello, {name}!")
+}
+
+dive main() {
+    let result: int = add(7, 13)
+    bark(result)
+    greet("Wally")
+}`,
+  interp: `~ String interpolation with {}
+
+dive main() {
+    let name: str = "Wally"
+    let age: int = 5
+    let weight: float = 150.3
+    bark("Hello, {name}!")
+    bark("Age: {age}")
+    bark("Weight: {weight} kg")
+    bark("{name} is {age} years old.")
+}`,
+  fish: `~ User input with fish()
+
+dive main() {
+    let name: str = fish("What is your name? ")
+    bark("Hello, {name}!")
+
+    let age: int = fish_int("How old are you? ")
+    bark("You are {age} years old.")
+
+    let score: float = fish_float("Enter a score: ")
+    bark("Score: {score}")
+}`,
+};
+
+picker.addEventListener('change', () => {
+  const key = picker.value;
+  if (key && EXAMPLES[key]) {
+    editor.value = EXAMPLES[key];
+    clearOutput();
+    setStatus('Ready', 'ok');
+  }
+  picker.value = '';
+});
+
+// ---- Drag-to-resize handle ----
+const resizeHandle = document.getElementById('resizeHandle');
+const paneEditor   = document.getElementById('paneEditor');
+const workspace    = document.getElementById('workspace');
+
+if (resizeHandle && paneEditor && workspace) {
+  let dragging = false;
+  let startY, startH;
+
+  resizeHandle.addEventListener('mousedown', e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = paneEditor.getBoundingClientRect().height;
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientY - startY;
+    const wsH   = workspace.getBoundingClientRect().height;
+    const newH  = Math.min(Math.max(startH + delta, 80), wsH - 80);
+    paneEditor.style.flex = 'none';
+    paneEditor.style.height = newH + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+}
