@@ -24,12 +24,12 @@ const TT = {
 };
 
 const KEYWORDS = {
-  'dive':TT.DIVE, 'surface':TT.SURFACE, 'pod':TT.POD, 'swim':TT.SWIM,
-  'bark':TT.BARK, 'tide':TT.TIDE, 'let':TT.LET, 'mut':TT.MUT,
-  'if':TT.IF, 'else':TT.ELSE, 'match':TT.MATCH, 'catch':TT.CATCH,
-  'in':TT.IN, 'self':TT.SELF,
-  'int':TT.TYINT, 'float':TT.TYFLOAT, 'bool':TT.TYBOOL, 'str':TT.TYSTR,
-  'true':TT.TRUE, 'false':TT.FALSE,
+  dive:TT.DIVE, surface:TT.SURFACE, pod:TT.POD, swim:TT.SWIM,
+  bark:TT.BARK, tide:TT.TIDE, let:TT.LET, mut:TT.MUT,
+  if:TT.IF, else:TT.ELSE, match:TT.MATCH, catch:TT.CATCH,
+  in:TT.IN, self:TT.SELF,
+  int:TT.TYINT, float:TT.TYFLOAT, bool:TT.TYBOOL, str:TT.TYSTR,
+  true:TT.TRUE, false:TT.FALSE,
 };
 
 function lex(src) {
@@ -600,15 +600,13 @@ class Interpreter {
   }
 }
 
-// ---- UI GLUE ----
-
-const editor    = document.getElementById('editor');
-const outputEl  = document.getElementById('output');
-const runBtn    = document.getElementById('runBtn');
-const clearBtn  = document.getElementById('clearBtn');
-const picker    = document.getElementById('examplePicker');
-const inputRow  = document.getElementById('inputRow');
-const inputEl   = document.getElementById('userInput');
+const editor = document.getElementById('editor');
+const outputEl = document.getElementById('output');
+const runBtn = document.getElementById('runBtn');
+const clearBtn = document.getElementById('clearBtn');
+const picker = document.getElementById('examplePicker');
+const inputRow = document.getElementById('inputRow');
+const inputEl = document.getElementById('userInput');
 const submitBtn = document.getElementById('submitInput');
 const statusMsg = document.getElementById('statusMsg');
 const statusDot = document.getElementById('statusDot');
@@ -630,7 +628,6 @@ function clearOutput() {
   outputEl.innerHTML = '';
 }
 
-// ---- Async input for fish() ----
 let inputResolver = null;
 
 function requestInput(prompt) {
@@ -655,11 +652,8 @@ function submitInput() {
 }
 
 submitBtn.addEventListener('click', submitInput);
-inputEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitInput();
-});
+inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') submitInput(); });
 
-// ---- Run ----
 async function runCode() {
   clearOutput();
   setStatus('Running…', 'running');
@@ -689,16 +683,10 @@ async function runCode() {
 }
 
 runBtn.addEventListener('click', runCode);
-clearBtn.addEventListener('click', () => {
-  clearOutput();
-  setStatus('Ready', 'ok');
-});
+clearBtn.addEventListener('click', () => { clearOutput(); setStatus('Ready', 'ok'); });
 
 editor.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    runCode();
-  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runCode(); }
   if (e.key === 'Tab') {
     e.preventDefault();
     const s = editor.selectionStart, end = editor.selectionEnd;
@@ -806,10 +794,9 @@ picker.addEventListener('change', () => {
   picker.value = '';
 });
 
-// ---- Drag-to-resize handle ----
 const resizeHandle = document.getElementById('resizeHandle');
-const paneEditor   = document.getElementById('paneEditor');
-const workspace    = document.getElementById('workspace');
+const paneEditor = document.getElementById('paneEditor');
+const workspace = document.getElementById('workspace');
 
 if (resizeHandle && paneEditor && workspace) {
   let dragging = false;
@@ -826,8 +813,8 @@ if (resizeHandle && paneEditor && workspace) {
   document.addEventListener('mousemove', e => {
     if (!dragging) return;
     const delta = e.clientY - startY;
-    const wsH   = workspace.getBoundingClientRect().height;
-    const newH  = Math.min(Math.max(startH + delta, 80), wsH - 80);
+    const wsH = workspace.getBoundingClientRect().height;
+    const newH = Math.min(Math.max(startH + delta, 80), wsH - 80);
     paneEditor.style.flex = 'none';
     paneEditor.style.height = newH + 'px';
   });
