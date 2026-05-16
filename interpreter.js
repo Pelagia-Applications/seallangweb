@@ -7,6 +7,8 @@
 //           functions with surface (return), match, tide/catch
 // ============================================================
 
+console.log("test")
+
 const TT = {
   DIVE:'DIVE', SURFACE:'SURFACE', POD:'POD', SWIM:'SWIM',
   BARK:'BARK', TIDE:'TIDE', LET:'LET', MUT:'MUT',
