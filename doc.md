@@ -1,4 +1,4 @@
-# SealLang Language Reference (0.1.)
+# SealLang Language Reference (1.0)
 
 > SealLang is a statically-typed, compiled programming language with ocean-themed syntax.
 > Programs are made of **pods** (structs) and **dives** (functions), and every statement lives inside a dive.
