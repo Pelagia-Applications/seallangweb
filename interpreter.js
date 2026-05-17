@@ -102,6 +102,8 @@ class Parser {
   constructor(tokens) {
     this.tokens = tokens;
     this.pos = 0;
+    // Populated during parseProgram so parsePrimary can distinguish pod inits
+    this.knownPods = new Set();
   }
 
   peek()    { return this.tokens[this.pos]; }
@@ -117,6 +119,17 @@ class Parser {
 
   parseProgram() {
     const pods = [], functions = [];
+    // First pass: collect all pod names so parsePrimary can recognise pod inits
+    const savedPos = this.pos;
+    while (!this.check(TT.EOF)) {
+      if (this.check(TT.POD)) {
+        this.advance(); // consume 'pod'
+        if (this.check(TT.IDENT)) this.knownPods.add(this.peek().value);
+      }
+      this.advance();
+    }
+    this.pos = savedPos;
+    // Second pass: actually parse
     while (!this.check(TT.EOF)) {
       if (this.check(TT.POD))  pods.push(this.parsePod());
       else if (this.check(TT.DIVE)) functions.push(this.parseFunction());
@@ -341,7 +354,11 @@ class Parser {
         return { kind:'Call', name, args };
       }
 
-      if (this.check(TT.LBRACE)) {
+      // FIX: only treat IDENT { as a pod init when it is a registered pod name.
+      // Without this guard, expressions like (x < y) where y is followed by a
+      // block-opening { (e.g. the then-body of an if) would be mis-parsed as a
+      // pod initialiser, consuming the { and crashing on the missing colon.
+      if (this.check(TT.LBRACE) && this.knownPods.has(name)) {
         this.advance();
         const fields = [];
         while (!this.check(TT.RBRACE) && !this.check(TT.EOF)) {
