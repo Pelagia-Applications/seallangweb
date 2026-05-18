@@ -1,7 +1,22 @@
-# SealLang Language Reference (1.0)
+# SealLang Language Reference 🦭
 
 > SealLang is a statically-typed, compiled programming language with ocean-themed syntax.
 > Programs are made of **pods** (structs) and **dives** (functions), and every statement lives inside a dive.
+
+**Version:** 1.1
+
+---
+
+## Changelog — v1.0 → v1.1
+
+| Feature | Description |
+|---|---|
+| **Arrays** | New `Type[]` syntax, array literals, index reads, and index assignment |
+| **Modulo** | New `%` operator for integer and float remainder |
+| **`else if`** | Chained conditionals without extra nesting |
+| **Math builtins** | `sqrt`, `pow`, `abs_int`, `floor`, `ceil`, `min_int`, `max_int` |
+| **`len()`** | Get the length of an array |
+| **`AssignIndex`** | `arr[i] = value` mutation for `mut` arrays |
 
 ---
 
@@ -16,10 +31,11 @@
 7. [Loops](#7-loops)
 8. [Functions (dive)](#8-functions-dive)
 9. [Pods (structs)](#9-pods-structs)
-10. [String Interpolation](#10-string-interpolation)
-11. [Built-in Functions](#11-built-in-functions)
-12. [Output](#12-output)
-13. [Keyword Reference](#13-keyword-reference)
+10. [Arrays](#10-arrays) *(new in 1.1)*
+11. [String Interpolation](#11-string-interpolation)
+12. [Built-in Functions](#12-built-in-functions)
+13. [Output](#13-output)
+14. [Keyword Reference](#14-keyword-reference)
 
 ---
 
@@ -58,15 +74,16 @@ let x: int = 5  ~ This is an inline comment
 
 ## 3. Types
 
-SealLang has four primitive types and supports named pod types.
+SealLang has four primitive types, array types, and named pod types.
 
-| Type    | Description                        | Example literals         |
-|---------|------------------------------------|--------------------------|
-| `int`   | 64-bit signed integer              | `0`, `-7`, `1000`        |
-| `float` | 64-bit floating-point number       | `3.14`, `-0.5`, `100.0`  |
-| `bool`  | Boolean                            | `true`, `false`          |
-| `str`   | UTF-8 string                       | `"hello"`, `"seal 🦭"`   |
-| `Name`  | A named pod type (user-defined)    | `Seal`, `Point`          |
+| Type       | Description                          | Example literals              |
+|------------|--------------------------------------|-------------------------------|
+| `int`      | 64-bit signed integer                | `0`, `-7`, `1000`             |
+| `float`    | 64-bit floating-point number         | `3.14`, `-0.5`, `100.0`       |
+| `bool`     | Boolean                              | `true`, `false`               |
+| `str`      | UTF-8 string                         | `"hello"`, `"seal 🦭"`        |
+| `Type[]`   | Array of any type *(new in 1.1)*     | `[1, 2, 3]`, `[1.0, 2.5]`    |
+| `Name`     | A named pod type (user-defined)      | `Seal`, `Point`               |
 
 There is also an implicit `void` return type for functions that do not `surface` a value.
 
@@ -98,17 +115,20 @@ count = count + 1
 
 ### Assignment
 
-Reassign a `mut` variable or a field of a mutable pod instance:
+Reassign a `mut` variable, a field of a mutable pod instance, or an element of a mutable array:
 
 ```seal
 mut score: int = 0
-score = 100          ~ reassign variable
+score = 100              ~ reassign variable
 
 mut s: Seal = Seal { age: 1, weight: 80.0 }
-s.age = 2            ~ reassign a field
+s.age = 2                ~ reassign a field
+
+mut nums: int[] = [1, 2, 3]
+nums[0] = 99             ~ reassign an array element (new in 1.1)
 ```
 
-> **Note:** Attempting to reassign a `let` binding is a type error.
+> **Note:** Attempting to reassign a `let` binding, or mutate elements of a `let` array, is a runtime error.
 
 ---
 
@@ -116,18 +136,20 @@ s.age = 2            ~ reassign a field
 
 ### Arithmetic
 
-| Operator | Operation      | Types         |
-|----------|----------------|---------------|
+| Operator | Operation      | Types                                 |
+|----------|----------------|---------------------------------------|
 | `+`      | Addition       | `int`, `float`, `str` (concatenation) |
-| `-`      | Subtraction    | `int`, `float` |
-| `*`      | Multiplication | `int`, `float` |
-| `/`      | Division       | `int`, `float` |
+| `-`      | Subtraction    | `int`, `float`                        |
+| `*`      | Multiplication | `int`, `float`                        |
+| `/`      | Division       | `int`, `float`                        |
+| `%`      | Modulo *(new)* | `int`, `float`                        |
 
 ```seal
-let sum: int   = 3 + 4      ~ 7
-let diff: float = 10.0 - 2.5 ~ 7.5
-let prod: int  = 6 * 7      ~ 42
-let quot: float = 9.0 / 4.0  ~ 2.25
+let sum: int    = 3 + 4       ~ 7
+let diff: float = 10.0 - 2.5  ~ 7.5
+let prod: int   = 6 * 7       ~ 42
+let quot: float = 9.0 / 4.0   ~ 2.25
+let rem: int    = 17 % 5      ~ 2
 ```
 
 ### Comparison
@@ -158,23 +180,23 @@ let c: bool = 10 > 20   ~ false
 | `!`      | Logical NOT |
 
 ```seal
-let both: bool = true && false   ~ false
-let either: bool = true || false ~ true
-let flipped: bool = !true        ~ false
+let both: bool    = true && false   ~ false
+let either: bool  = true || false   ~ true
+let flipped: bool = !true           ~ false
 ```
 
 ### Operator Precedence
 
 From highest to lowest:
 
-| Level | Operators          |
-|-------|--------------------|
-| 6     | `*` `/`            |
-| 5     | `+` `-`            |
-| 4     | `<` `>` `<=` `>=`  |
-| 3     | `==` `!=`          |
-| 2     | `&&`               |
-| 1     | `\|\|`             |
+| Level | Operators            |
+|-------|----------------------|
+| 6     | `*` `/` `%`          |
+| 5     | `+` `-`              |
+| 4     | `<` `>` `<=` `>=`   |
+| 3     | `==` `!=`            |
+| 2     | `&&`                 |
+| 1     | `\|\|`               |
 
 Use parentheses `( )` to override precedence.
 
@@ -205,29 +227,27 @@ if x < y {
 }
 ```
 
-### if without else
+### else if *(new in 1.1)*
+
+Chain multiple conditions with `else if`. Only the first matching branch runs.
 
 ```seal
-let logged_in: bool = true
+let score: int = 85
 
-if logged_in {
-    bark("Welcome back!")
-}
-```
-
-### Nested if
-
-```seal
-if a > 0 {
-    if a > 100 {
-        bark("large positive")
-    } else {
-        bark("small positive")
-    }
+if score >= 90 {
+    bark("Grade: A")
+} else if score >= 80 {
+    bark("Grade: B")
+} else if score >= 70 {
+    bark("Grade: C")
+} else if score >= 60 {
+    bark("Grade: D")
 } else {
-    bark("non-positive")
+    bark("Grade: F")
 }
 ```
+
+There is no limit on the number of `else if` arms.
 
 ### match
 
@@ -261,7 +281,7 @@ swim i in 0..5 {
 ~ prints: 0, 1, 2, 3, 4
 ```
 
-The loop variable (`i` above) is automatically bound as `int` inside the body and is read-only within the loop.
+The loop variable is automatically bound as `int` inside the body and is read-only within the loop.
 
 ```seal
 ~ Sum 1 through 10
@@ -279,6 +299,17 @@ let start: int = 2
 let end: int = 8
 swim i in start..end {
     bark(i * i)
+}
+```
+
+### Looping over an array *(new in 1.1)*
+
+Use `swim` with `len()` to iterate over an array by index:
+
+```seal
+let nums: int[] = [10, 20, 30, 40, 50]
+swim i in 0..len(nums) {
+    bark(nums[i])
 }
 ```
 
@@ -330,16 +361,17 @@ dive main() {
 Functions can call themselves recursively:
 
 ```seal
-dive factorial(n: int) -> int {
+dive fib(n: int) -> int {
     if n <= 1 {
-        surface 1
-    } else {
-        surface n * factorial(n - 1)
+        surface n
     }
+    surface fib(n - 1) + fib(n - 2)
 }
 
 dive main() {
-    bark(factorial(5))  ~ 120
+    swim i in 0..10 {
+        bark(fib(i))
+    }
 }
 ```
 
@@ -358,6 +390,8 @@ dive main() {
 ## 9. Pods (structs)
 
 Pods are named collections of typed fields — similar to structs in other languages.
+
+> **Convention:** Pod names must start with an **uppercase letter** (e.g. `Seal`, `Point`). This is how the compiler distinguishes pod initialisers like `Seal { ... }` from block statements.
 
 ### Defining a pod
 
@@ -410,68 +444,210 @@ pod Point {
     y: int
 }
 
-dive distance_from_origin(p: Point) -> float {
-    ~ simplified — returns x+y as float for demonstration
+dive sum_coords(p: Point) -> int {
     surface p.x + p.y
 }
 
 dive main() {
     let p: Point = Point { x: 3, y: 4 }
-    bark(distance_from_origin(p))
+    bark(sum_coords(p))  ~ 7
 }
 ```
 
 ---
 
-## 10. String Interpolation
+## 10. Arrays *(new in 1.1)*
+
+Arrays are ordered, fixed-length sequences of values all of the same type.
+
+### Array types
+
+Append `[]` to any base type to form its array type:
+
+```seal
+let nums: int[]   = [1, 2, 3]
+let temps: float[] = [98.6, 37.0, 100.4]
+let flags: bool[]  = [true, false, true]
+let words: str[]   = ["seal", "wave", "tide"]
+```
+
+### Array literals
+
+Write elements between `[` and `]`, separated by commas:
+
+```seal
+let primes: int[] = [2, 3, 5, 7, 11]
+```
+
+### Reading elements
+
+Use zero-based index notation `arr[i]`:
+
+```seal
+let nums: int[] = [10, 20, 30]
+bark(nums[0])   ~ 10
+bark(nums[2])   ~ 30
+```
+
+Accessing an out-of-bounds index is a runtime error.
+
+### Mutating elements
+
+The array variable must be declared with `mut`:
+
+```seal
+mut scores: int[] = [1, 2, 3]
+scores[1] = 99
+bark(scores[1])  ~ 99
+```
+
+Mutating an element of a `let` array is a runtime error.
+
+### Getting the length
+
+Use the `len()` built-in:
+
+```seal
+let nums: int[] = [10, 20, 30, 40, 50]
+bark(len(nums))  ~ 5
+```
+
+### Looping over an array
+
+```seal
+let nums: int[] = [10, 20, 30, 40, 50]
+swim i in 0..len(nums) {
+    bark(nums[i])
+}
+```
+
+### Full example
+
+```seal
+dive main() {
+    ~ declare an int array
+    let nums: int[] = [10, 20, 30, 40, 50]
+
+    ~ read elements
+    bark(nums[0])   ~ 10
+    bark(nums[4])   ~ 50
+
+    ~ loop over array
+    swim i in 0..5 {
+        bark(nums[i])
+    }
+
+    ~ mutate an element
+    mut scores: int[] = [1, 2, 3]
+    scores[1] = 99
+    bark(scores[1])  ~ 99
+
+    ~ float array
+    let temps: float[] = [98.6, 37.0, 100.4]
+    bark(temps[0])   ~ 98.6
+}
+```
+
+---
+
+## 11. String Interpolation
 
 Curly braces `{varName}` inside a string literal are replaced with the current value of the named variable. Any type can be interpolated — it is converted to its string representation automatically.
 
 ```seal
-let name: str = "Wally"
-let age: int = 5
+let name: str  = "Wally"
+let age: int   = 5
 let weight: float = 120.5
 
-bark("Hello, {name}!")           ~ Hello, Wally!
-bark("Age: {age}")               ~ Age: 5
-bark("Weight: {weight} kg")      ~ Weight: 120.5 kg
-bark("{name} is {age} yrs old.") ~ Wally is 5 yrs old.
+bark("Hello, {name}!")            ~ Hello, Wally!
+bark("Age: {age}")                ~ Age: 5
+bark("Weight: {weight} kg")       ~ Weight: 120.5 kg
+bark("{name} is {age} yrs old.")  ~ Wally is 5 yrs old.
 ```
 
 > **Note:** Only simple variable names are supported inside `{ }`. Expressions like `{a + b}` are not interpolated.
 
 ---
 
-## 11. Built-in Functions
+## 12. Built-in Functions
+
+### Output — `bark`
+
+`bark` prints a single value followed by a newline. It accepts any type including arrays.
+
+```seal
+bark("hello")          ~ string
+bark(42)               ~ int
+bark(3.14)             ~ float
+bark(true)             ~ bool
+bark([1, 2, 3])        ~ array: [1, 2, 3]
+bark(s.age)            ~ field value
+bark(add(2, 3))        ~ function call result
+```
 
 ### Input — `fish`, `fish_int`, `fish_float`
 
 These functions pause execution and prompt the user for input.
 
-| Function      | Prompt type | Returns |
-|---------------|-------------|---------|
-| `fish(prompt)`       | `str` | `str`   |
-| `fish_int(prompt)`   | `str` | `int`   |
-| `fish_float(prompt)` | `str` | `float` |
+| Function               | Returns |
+|------------------------|---------|
+| `fish(prompt)`         | `str`   |
+| `fish_int(prompt)`     | `int`   |
+| `fish_float(prompt)`   | `float` |
+
+```seal
+let name: str   = fish("What is your name? ")
+let age: int    = fish_int("How old are you? ")
+let score: float = fish_float("Enter a score: ")
+```
+
+> `fish_int` and `fish_float` error at runtime if the input cannot be parsed as a number.
+
+### Array — `len` *(new in 1.1)*
+
+Returns the number of elements in an array as an `int`.
+
+```seal
+let nums: int[] = [10, 20, 30]
+bark(len(nums))  ~ 3
+```
+
+### Math *(new in 1.1)*
+
+| Function              | Description                            | Returns  |
+|-----------------------|----------------------------------------|----------|
+| `sqrt(x)`             | Square root                            | `float`  |
+| `pow(base, exp)`      | Raise `base` to the power `exp`        | `float`  |
+| `abs_int(n)`          | Absolute value of an integer           | `int`    |
+| `floor(x)`            | Round down to nearest integer          | `int`    |
+| `ceil(x)`             | Round up to nearest integer            | `int`    |
+| `min_int(a, b)`       | Smaller of two integers                | `int`    |
+| `max_int(a, b)`       | Larger of two integers                 | `int`    |
 
 ```seal
 dive main() {
-    let name: str = fish("What is your name? ")
-    bark("Hello, {name}!")
-
-    let age: int = fish_int("How old are you? ")
-    bark("You are {age} years old.")
-
-    let score: float = fish_float("Enter your score: ")
-    bark("Score: {score}")
+    let a: int   = 17 % 5           ~ 2
+    let b: float = sqrt(144.0)      ~ 12.0
+    let c: float = pow(2.0, 10.0)   ~ 1024.0
+    let d: int   = abs_int(-42)     ~ 42
+    let e: int   = floor(3.9)       ~ 3
+    let f: int   = ceil(3.1)        ~ 4
+    let g: int   = min_int(10, 20)  ~ 10
+    let h: int   = max_int(10, 20)  ~ 20
+    bark(a)
+    bark(b)
+    bark(c)
+    bark(d)
+    bark(e)
+    bark(f)
+    bark(g)
+    bark(h)
 }
 ```
 
-> `fish_int` and `fish_float` will error at runtime if the user enters something that cannot be parsed as a number.
-
 ---
 
-## 12. Output
+## 13. Output
 
 ### bark
 
@@ -482,6 +658,7 @@ bark("hello")       ~ string
 bark(42)            ~ int
 bark(3.14)          ~ float
 bark(true)          ~ bool
+bark([1, 2, 3])     ~ [1, 2, 3]
 bark(s.age)         ~ field value
 bark(add(2, 3))     ~ function call result
 ```
@@ -490,7 +667,7 @@ bark(add(2, 3))     ~ function call result
 
 ---
 
-## 13. Keyword Reference
+## 14. Keyword Reference
 
 | Keyword   | Role                                    | Analogue in other languages |
 |-----------|-----------------------------------------|-----------------------------|
@@ -502,7 +679,7 @@ bark(add(2, 3))     ~ function call result
 | `bark`    | Print a value to output                 | `print`, `println`, `echo`  |
 | `swim`    | Range-based for loop                    | `for`, `foreach`            |
 | `if`      | Conditional branch                      | `if`                        |
-| `else`    | Alternative branch                      | `else`                      |
+| `else`    | Alternative branch / `else if` chain    | `else`, `elif`              |
 | `match`   | Pattern matching                        | `match`, `switch`           |
 | `in`      | Used in `swim` loop range syntax        | `in`                        |
 | `tide`    | Mark a fallible operation *(reserved)*  | `try`                       |
@@ -521,31 +698,38 @@ bark(add(2, 3))     ~ function call result
 ```
 ~ comment
 
-~ Types: int  float  bool  str  PodName
+~ Types: int  float  bool  str  int[]  float[]  PodName
 
 ~ Variables
 let x: int = 10
 mut y: int = 0
 y = 5
 
-~ Output
+~ Arrays (new in 1.1)
+let nums: int[] = [10, 20, 30]
+bark(nums[0])
+mut scores: int[] = [1, 2, 3]
+scores[1] = 99
+bark(len(nums))
+
+~ Output / Input
 bark("hello")
 bark(x)
-
-~ Input
 let s: str   = fish("prompt ")
 let n: int   = fish_int("prompt ")
 let f: float = fish_float("prompt ")
 
-~ Arithmetic: +  -  *  /
+~ Arithmetic: +  -  *  /  %
 ~ Comparison: ==  !=  <  >  <=  >=
 ~ Logical:    &&  ||  !
 
 ~ Conditionals
 if x > 0 {
     bark("positive")
+} else if x == 0 {
+    bark("zero")
 } else {
-    bark("non-positive")
+    bark("negative")
 }
 
 ~ Loop (half-open range)
@@ -553,18 +737,40 @@ swim i in 0..10 {
     bark(i)
 }
 
+~ Loop over array
+swim i in 0..len(nums) {
+    bark(nums[i])
+}
+
 ~ Function
 dive add(a: int, b: int) -> int {
     surface a + b
 }
 
-~ Struct
+~ Recursion
+dive fib(n: int) -> int {
+    if n <= 1 { surface n }
+    surface fib(n - 1) + fib(n - 2)
+}
+
+~ Pod (must start with uppercase)
 pod Seal {
     name: str,
     age: int
 }
 let s: Seal = Seal { name: "Wally", age: 3 }
 bark(s.name)
+mut s2: Seal = Seal { name: "Bob", age: 1 }
+s2.age = 2
+
+~ Math builtins (new in 1.1)
+sqrt(144.0)      ~ 12.0
+pow(2.0, 10.0)   ~ 1024.0
+abs_int(-5)      ~ 5
+floor(3.9)       ~ 3
+ceil(3.1)        ~ 4
+min_int(1, 2)    ~ 1
+max_int(1, 2)    ~ 2
 
 ~ String interpolation
 bark("Hello, {name}! You are {age} years old.")
