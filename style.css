@@ -296,20 +296,26 @@ kbd {
 
 /* ── Editor textarea ── */
 #editor {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   font-family: var(--mono);
   font-size: 0.82rem;
   line-height: 1.6;
-  background: var(--editor-bg);
-  color: #c8d0e8;
+  background: transparent;
+  color: transparent;
+  caret-color: #ffffffcc;
   border: none;
   outline: none;
   padding: 14px 18px;
   resize: none;
   tab-size: 4;
-  caret-color: var(--accent);
+  box-sizing: border-box;
+  overflow: auto;
+  z-index: 1;
 }
-#editor::selection { background: rgba(78,158,255,0.25); }
+#editor::selection { background: rgba(78,158,255,0.3); }
 
 /* ── Resize handle ── */
 .resize-handle {
@@ -418,3 +424,45 @@ kbd {
   .pane-editor { flex-basis: 50%; }
   .brand-sub, .nav-right, .toolbar-right { display: none; }
 }
+
+/* ── Editor highlight overlay ── */
+.editor-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.highlight-layer {
+  position: absolute;
+  inset: 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 14px 18px;
+  box-sizing: border-box;
+  white-space: pre;
+  word-wrap: normal;
+  overflow: auto;
+  pointer-events: none;
+  z-index: 0;
+  color: #c8d0e8;
+  tab-size: 4;
+}
+
+/* Syntax token colours — matching VS Code extension scopes */
+.hl-comment    { color: #6a9955; font-style: italic; }   /* comment.line */
+.hl-string     { color: #ce9178; }                        /* string.quoted.double */
+.hl-escape     { color: #d7ba7d; }                        /* constant.character.escape */
+.hl-interp     { color: #9cdcfe; text-decoration: underline; } /* variable.other.interpolated */
+.hl-keyword    { color: #c586c0; }                        /* keyword.control */
+.hl-decl       { color: #569cd6; }                        /* keyword.declaration (let/mut) */
+.hl-fn-kw      { color: #569cd6; }                        /* keyword.declaration.function (dive) */
+.hl-pod-kw     { color: #569cd6; }                        /* keyword.declaration.class (pod) */
+.hl-type       { color: #4ec9b0; }                        /* storage.type */
+.hl-builtin    { color: #dcdcaa; }                        /* support.function.builtin */
+.hl-bool       { color: #569cd6; }                        /* constant.language.boolean */
+.hl-number     { color: #b5cea8; }                        /* constant.numeric */
+.hl-fn-name    { color: #dcdcaa; }                        /* entity.name.function */
+.hl-pod-name   { color: #4ec9b0; }                        /* entity.name.type */
+.hl-op         { color: #d4d4d4; }                        /* keyword.operator */
+.hl-arrow      { color: #c586c0; }                        /* keyword.operator.arrow */
