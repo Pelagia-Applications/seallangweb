@@ -3,7 +3,15 @@
 > SealLang is a statically-typed, compiled programming language with ocean-themed syntax.
 > Programs are made of **pods** (structs) and **dives** (functions), and every statement lives inside a dive.
 
-**Version:** 1.1
+**Version:** 1.11
+
+---
+
+## Changelog — v1.1 → v1.11
+
+| Feature | Description |
+|---|---|
+| **Syntax highlighting** | The web playground now highlights SealLang code, matching the official VS Code extension |
 
 ---
 
@@ -232,7 +240,7 @@ if x < y {
 Chain multiple conditions with `else if`. Only the first matching branch runs.
 
 ```seal
-let score: int = 85
+let score: int = fish_int("Enter your score: ")
 
 if score >= 90 {
     bark("Grade: A")
