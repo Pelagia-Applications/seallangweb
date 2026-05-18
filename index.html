@@ -69,7 +69,9 @@
           <span class="pane-title">Source Code</span>
           <span class="pane-meta">main.seal</span>
         </div>
-        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">~ Welcome to SealLang! 🦭
+        <div class="editor-wrap" id="editorWrap">
+          <div class="highlight-layer" id="highlightLayer" aria-hidden="true"></div>
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">~ Welcome to SealLang! 🦭
 ~ Comments use the tilde (~) symbol
 
 dive main() {
@@ -89,6 +91,7 @@ dive main() {
     }
 }
 </textarea>
+        </div>
       </div>
 
       <div class="resize-handle" id="resizeHandle" title="Drag to resize"></div>
@@ -121,6 +124,7 @@ dive main() {
 
   </div>
 
+  <script src="highlighter.js"></script>
   <script src="interpreter.js"></script>
 </body>
 </html>
