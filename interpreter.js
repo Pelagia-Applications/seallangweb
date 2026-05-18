@@ -905,27 +905,30 @@ dive main() {
     bark(h)
 }`,
 
-  logic: `~ else if and ! operator
+  logic: `~ Test else if and ! operator
 
 dive main() {
-    let score: int = 85
+    let score: int = fish_int("Enter score: ")
 
+    ~ else if chain
     if score >= 90 {
         bark("Grade: A")
     } else if score >= 80 {
         bark("Grade: B")
     } else if score >= 70 {
         bark("Grade: C")
+    } else if score >= 60 {
+        bark("Grade: D")
     } else {
         bark("Grade: F")
     }
 
+    ~ not operator
     let passing: bool = score >= 70
     let failing: bool = !passing
+
     if failing {
         bark("You are failing!")
-    } else {
-        bark("You are passing!")
     }
 }`,
 };
