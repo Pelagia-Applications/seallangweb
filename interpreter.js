@@ -1,32 +1,35 @@
 // ============================================================
 // SEALLANG WEB INTERPRETER
-// Lexer → Parser → Tree-walk Interpreter
+// Updated to match current compiler:
+//   + arrays (int[], float[], etc.) with literals, index, assign
+//   + modulo operator %
+//   + else if chains
+//   + math builtins: sqrt, pow, abs_int, floor, ceil, min_int, max_int
+//   + len() built-in for arrays
+//   + bark remains a builtin (not a keyword)
+//   + pod init uses uppercase-first convention (no knownPods scan needed)
 // ============================================================
 
 // ---- TOKEN TYPES ----
 
 const TT = {
   DIVE:'DIVE', SURFACE:'SURFACE', POD:'POD', SWIM:'SWIM',
-  TIDE:'TIDE', LET:'LET', MUT:'MUT',
+  BARK:'BARK', TIDE:'TIDE', LET:'LET', MUT:'MUT',
   IF:'IF', ELSE:'ELSE', MATCH:'MATCH', CATCH:'CATCH', IN:'IN', SELF:'SELF',
   TYINT:'TYINT', TYFLOAT:'TYFLOAT', TYBOOL:'TYBOOL', TYSTR:'TYSTR',
   INT:'INT', FLOAT:'FLOAT', TRUE:'TRUE', FALSE:'FALSE', STR:'STR',
   IDENT:'IDENT',
-  PLUS:'PLUS', MINUS:'MINUS', STAR:'STAR', SLASH:'SLASH',
+  PLUS:'PLUS', MINUS:'MINUS', STAR:'STAR', SLASH:'SLASH', PERCENT:'PERCENT',
   EQEQ:'EQEQ', NEQ:'NEQ', LTEQ:'LTEQ', GTEQ:'GTEQ', LT:'LT', GT:'GT',
   AND:'AND', OR:'OR', EQ:'EQ', BANG:'BANG',
   LPAREN:'LPAREN', RPAREN:'RPAREN', LBRACE:'LBRACE', RBRACE:'RBRACE',
+  LBRACKET:'LBRACKET', RBRACKET:'RBRACKET',
   COMMA:'COMMA', COLON:'COLON', SEMI:'SEMI', ARROW:'ARROW',
   DOTDOT:'DOTDOT', DOT:'DOT',
   EOF:'EOF',
 };
 
-// FIX 1: 'bark' is NOT a keyword token — it is a regular identifier.
-// Making bark a keyword caused parsePrimary() to never match it as a
-// callable IDENT, producing "Expected IDENT, got BARK" on any bark() call
-// that landed in expression position (e.g. inside loops, if bodies, etc.).
-// bark/fish/fish_int/fish_float are all handled as built-in functions at
-// the interpreter level, so they don't need to be keywords.
+// bark is NOT a keyword — it's handled as a builtin function.
 const KEYWORDS = {
   dive:TT.DIVE, surface:TT.SURFACE, pod:TT.POD, swim:TT.SWIM,
   tide:TT.TIDE, let:TT.LET, mut:TT.MUT,
@@ -44,25 +47,34 @@ function lex(src) {
   const len = src.length;
 
   while (i < len) {
+    // Whitespace
     if (/[ \t\r\n]/.test(src[i])) { i++; continue; }
+    // Line comment: ~
     if (src[i] === '~') { while (i < len && src[i] !== '\n') i++; continue; }
 
+    // String literal
     if (src[i] === '"') {
       let s = '';
       i++;
       while (i < len && src[i] !== '"') {
-        if (src[i] === '\\') { i++; s += src[i] === 'n' ? '\n' : src[i]; }
-        else s += src[i];
+        if (src[i] === '\\') {
+          i++;
+          if (src[i] === 'n') s += '\n';
+          else if (src[i] === 't') s += '\t';
+          else s += src[i];
+        } else {
+          s += src[i];
+        }
         i++;
       }
-      i++;
+      i++; // closing "
       tokens.push({ type: TT.STR, value: s });
       continue;
     }
 
-    if (/[0-9]/.test(src[i]) || (src[i] === '-' && /[0-9]/.test(src[i+1]) && (tokens.length === 0 || ['PLUS','MINUS','STAR','SLASH','EQ','EQEQ','NEQ','LT','GT','LTEQ','GTEQ','AND','OR','COMMA','COLON','LPAREN','LBRACE','ARROW'].includes(tokens[tokens.length-1]?.type)))) {
+    // Number (no signed literal in lexer — unary minus handled in parser)
+    if (/[0-9]/.test(src[i])) {
       let num = '';
-      if (src[i] === '-') { num = '-'; i++; }
       while (i < len && /[0-9]/.test(src[i])) { num += src[i]; i++; }
       if (src[i] === '.' && src[i+1] !== '.') {
         num += '.'; i++;
@@ -74,6 +86,7 @@ function lex(src) {
       continue;
     }
 
+    // Identifier / keyword
     if (/[a-zA-Z_]/.test(src[i])) {
       let word = '';
       while (i < len && /[a-zA-Z0-9_]/.test(src[i])) { word += src[i]; i++; }
@@ -82,11 +95,23 @@ function lex(src) {
       continue;
     }
 
+    // Two-char operators (check before single-char)
     const two = src[i] + (src[i+1] || '');
-    const twoMap = { '==':TT.EQEQ,'!=':TT.NEQ,'<=':TT.LTEQ,'>=':TT.GTEQ,'&&':TT.AND,'||':TT.OR,'->':TT.ARROW,'..':TT.DOTDOT };
+    const twoMap = {
+      '==':TT.EQEQ, '!=':TT.NEQ, '<=':TT.LTEQ, '>=':TT.GTEQ,
+      '&&':TT.AND, '||':TT.OR, '->':TT.ARROW, '..':TT.DOTDOT
+    };
     if (twoMap[two]) { tokens.push({ type: twoMap[two] }); i += 2; continue; }
 
-    const oneMap = { '+':TT.PLUS,'-':TT.MINUS,'*':TT.STAR,'/':TT.SLASH,'<':TT.LT,'>':TT.GT,'=':TT.EQ,'!':TT.BANG,'(':TT.LPAREN,')':TT.RPAREN,'{':TT.LBRACE,'}':TT.RBRACE,',':TT.COMMA,':':TT.COLON,';':TT.SEMI,'.':TT.DOT };
+    // Single-char
+    const oneMap = {
+      '+':TT.PLUS, '-':TT.MINUS, '*':TT.STAR, '/':TT.SLASH, '%':TT.PERCENT,
+      '<':TT.LT, '>':TT.GT, '=':TT.EQ, '!':TT.BANG,
+      '(':TT.LPAREN, ')':TT.RPAREN,
+      '{':TT.LBRACE, '}':TT.RBRACE,
+      '[':TT.LBRACKET, ']':TT.RBRACKET,
+      ',':TT.COMMA, ':':TT.COLON, ';':TT.SEMI, '.':TT.DOT
+    };
     if (oneMap[src[i]]) { tokens.push({ type: oneMap[src[i]] }); i++; continue; }
 
     throw new Error(`Unexpected character '${src[i]}' at position ${i}`);
@@ -102,8 +127,6 @@ class Parser {
   constructor(tokens) {
     this.tokens = tokens;
     this.pos = 0;
-    // Populated during parseProgram so parsePrimary can distinguish pod inits
-    this.knownPods = new Set();
   }
 
   peek()    { return this.tokens[this.pos]; }
@@ -119,20 +142,9 @@ class Parser {
 
   parseProgram() {
     const pods = [], functions = [];
-    // First pass: collect all pod names so parsePrimary can recognise pod inits
-    const savedPos = this.pos;
     while (!this.check(TT.EOF)) {
-      if (this.check(TT.POD)) {
-        this.advance(); // consume 'pod'
-        if (this.check(TT.IDENT)) this.knownPods.add(this.peek().value);
-      }
-      this.advance();
-    }
-    this.pos = savedPos;
-    // Second pass: actually parse
-    while (!this.check(TT.EOF)) {
-      if (this.check(TT.POD))  pods.push(this.parsePod());
-      else if (this.check(TT.DIVE)) functions.push(this.parseFunction());
+      if (this.check(TT.POD))        pods.push(this.parsePod());
+      else if (this.check(TT.DIVE))  functions.push(this.parseFunction());
       else throw new Error(`Expected 'pod' or 'dive', got ${this.peek().type}`);
     }
     return { pods, functions };
@@ -180,16 +192,25 @@ class Parser {
     return params;
   }
 
+  // Parse type, including array suffix: int[]
   parseType() {
     const t = this.advance();
+    let base;
     switch (t.type) {
-      case TT.TYINT:   return 'int';
-      case TT.TYFLOAT: return 'float';
-      case TT.TYBOOL:  return 'bool';
-      case TT.TYSTR:   return 'str';
-      case TT.IDENT:   return t.value;
+      case TT.TYINT:   base = 'int'; break;
+      case TT.TYFLOAT: base = 'float'; break;
+      case TT.TYBOOL:  base = 'bool'; break;
+      case TT.TYSTR:   base = 'str'; break;
+      case TT.IDENT:   base = t.value; break;
       default: throw new Error(`Expected type, got ${t.type}`);
     }
+    // Array suffix: int[]
+    if (this.check(TT.LBRACKET)) {
+      this.advance();
+      this.expect(TT.RBRACKET);
+      return { array: true, elem: base };
+    }
+    return base;
   }
 
   parseBlock() {
@@ -220,65 +241,66 @@ class Parser {
       return { kind: 'Return', expr };
     }
 
-    if (t.type === TT.IF) {
+    if (t.type === TT.IF) return this.parseIf();
+    if (t.type === TT.SWIM) return this.parseSwim();
+    if (t.type === TT.MATCH) return this.parseMatch();
+
+    // Expression statement — also handles assignments
+    const expr = this.parseExpr();
+
+    if (this.check(TT.EQ)) {
       this.advance();
-      const condition = this.parseExpr();
-      this.expect(TT.LBRACE);
-      const thenBody = this.parseBlock();
-      this.expect(TT.RBRACE);
-      let elseBody = null;
-      if (this.eat(TT.ELSE)) {
+      const value = this.parseExpr();
+      this.eat(TT.SEMI);
+      // Determine assignment target from the parsed expression
+      if (expr.kind === 'Var') {
+        return { kind: 'Assign', name: expr.name, value };
+      }
+      if (expr.kind === 'FieldAccess' && expr.object.kind === 'Var') {
+        return { kind: 'AssignField', object: expr.object.name, field: expr.field, value };
+      }
+      if (expr.kind === 'Index' && expr.array.kind === 'Var') {
+        return { kind: 'AssignIndex', name: expr.array.name, index: expr.index, value };
+      }
+      throw new Error('Invalid assignment target');
+    }
+
+    this.eat(TT.SEMI);
+    return { kind: 'ExprStmt', expr };
+  }
+
+  parseIf() {
+    this.expect(TT.IF);
+    const condition = this.parseExpr();
+    this.expect(TT.LBRACE);
+    const thenBody = this.parseBlock();
+    this.expect(TT.RBRACE);
+
+    let elseBody = null;
+    if (this.eat(TT.ELSE)) {
+      if (this.check(TT.IF)) {
+        // else if — parse the nested if as a single statement in the else block
+        elseBody = [this.parseIf()];
+      } else {
         this.expect(TT.LBRACE);
         elseBody = this.parseBlock();
         this.expect(TT.RBRACE);
       }
-      return { kind: 'If', condition, thenBody, elseBody };
     }
+    return { kind: 'If', condition, thenBody, elseBody };
+  }
 
-    if (t.type === TT.SWIM) {
-      this.advance();
-      const varName = this.expect(TT.IDENT).value;
-      this.expect(TT.IN);
-      const from = this.parseExpr();
-      this.expect(TT.DOTDOT);
-      const to = this.parseExpr();
-      this.expect(TT.LBRACE);
-      const body = this.parseBlock();
-      this.expect(TT.RBRACE);
-      return { kind: 'Swim', var: varName, from, to, body };
-    }
-
-    if (t.type === TT.MATCH) return this.parseMatch();
-
-    // FIX 2: assignment detection — check for IDENT followed by = or .field =
-    if (t.type === TT.IDENT) {
-      const savedPos = this.pos;
-      const name = this.advance().value;
-
-      if (this.check(TT.DOT)) {
-        this.advance();
-        const field = this.expect(TT.IDENT).value;
-        if (this.check(TT.EQ)) {
-          this.advance();
-          const value = this.parseExpr();
-          this.eat(TT.SEMI);
-          return { kind: 'AssignField', object: name, field, value };
-        }
-        this.pos = savedPos;
-      } else if (this.check(TT.EQ)) {
-        this.advance();
-        const value = this.parseExpr();
-        this.eat(TT.SEMI);
-        return { kind: 'Assign', name, value };
-      } else {
-        this.pos = savedPos;
-      }
-    }
-
-    // Fallthrough to expression statement (covers bark(...), function calls, etc.)
-    const expr = this.parseExpr();
-    this.eat(TT.SEMI);
-    return { kind: 'ExprStmt', expr };
+  parseSwim() {
+    this.expect(TT.SWIM);
+    const varName = this.expect(TT.IDENT).value;
+    this.expect(TT.IN);
+    const from = this.parseExpr();
+    this.expect(TT.DOTDOT);
+    const to = this.parseExpr();
+    this.expect(TT.LBRACE);
+    const body = this.parseBlock();
+    this.expect(TT.RBRACE);
+    return { kind: 'Swim', var: varName, from, to, body };
   }
 
   parseMatch() {
@@ -299,26 +321,61 @@ class Parser {
     return { kind: 'Match', subject, arms };
   }
 
-  parseExpr()       { return this.parseOr(); }
-  parseOr()         { let l = this.parseAnd();        while (this.check(TT.OR))   { this.advance(); l = { kind:'BinOp', op:'||', left:l, right:this.parseAnd() }; }        return l; }
-  parseAnd()        { let l = this.parseEquality();   while (this.check(TT.AND))  { this.advance(); l = { kind:'BinOp', op:'&&', left:l, right:this.parseEquality() }; }   return l; }
-  parseEquality()   { let l = this.parseComparison(); while (this.check(TT.EQEQ)||this.check(TT.NEQ)) { const op=this.advance().type===TT.EQEQ?'==':'!='; l={kind:'BinOp',op,left:l,right:this.parseComparison()}; } return l; }
-  parseComparison() { let l = this.parseAddSub();     while ([TT.LT,TT.GT,TT.LTEQ,TT.GTEQ].includes(this.peek().type)) { const m={[TT.LT]:'<',[TT.GT]:'>',[TT.LTEQ]:'<=',[TT.GTEQ]:'>='}; const op=m[this.advance().type]; l={kind:'BinOp',op,left:l,right:this.parseAddSub()}; } return l; }
-  parseAddSub()     { let l = this.parseMulDiv();     while (this.check(TT.PLUS)||this.check(TT.MINUS)) { const op=this.advance().type===TT.PLUS?'+':'-'; l={kind:'BinOp',op,left:l,right:this.parseMulDiv()}; } return l; }
-  parseMulDiv()     { let l = this.parseUnary();      while (this.check(TT.STAR)||this.check(TT.SLASH)) { const op=this.advance().type===TT.STAR?'*':'/'; l={kind:'BinOp',op,left:l,right:this.parseUnary()}; } return l; }
+  // ---- Expressions (Pratt-style precedence climbing) ----
+
+  parseExpr() { return this.parseBinary(0); }
+
+  parseBinary(minPrec) {
+    let left = this.parseUnary();
+    while (true) {
+      const op = this.peekBinOp();
+      if (!op) break;
+      const prec = opPrec(op);
+      if (prec < minPrec) break;
+      this.advance();
+      const right = this.parseBinary(prec + 1);
+      left = { kind: 'BinOp', op, left, right };
+    }
+    return left;
+  }
+
+  peekBinOp() {
+    const map = {
+      [TT.PLUS]:'Add', [TT.MINUS]:'Sub', [TT.STAR]:'Mul',
+      [TT.SLASH]:'Div', [TT.PERCENT]:'Mod',
+      [TT.EQEQ]:'Eq', [TT.NEQ]:'NotEq',
+      [TT.LT]:'Lt', [TT.GT]:'Gt', [TT.LTEQ]:'LtEq', [TT.GTEQ]:'GtEq',
+      [TT.AND]:'And', [TT.OR]:'Or',
+    };
+    return map[this.peek().type] || null;
+  }
 
   parseUnary() {
-    if (this.check(TT.BANG))  { this.advance(); return { kind:'Unary', op:'!', expr:this.parseUnary() }; }
-    if (this.check(TT.MINUS)) { this.advance(); return { kind:'Unary', op:'-', expr:this.parseUnary() }; }
+    if (this.check(TT.BANG))  { this.advance(); return { kind:'Not', expr: this.parseUnary() }; }
+    if (this.check(TT.MINUS)) {
+      this.advance();
+      const expr = this.parseUnary();
+      // Fold constant negatives for cleanliness
+      if (expr.kind === 'Int')   return { kind:'Int',   value: -expr.value };
+      if (expr.kind === 'Float') return { kind:'Float', value: -expr.value };
+      return { kind:'BinOp', op:'Sub', left:{ kind:'Int', value:0 }, right:expr };
+    }
     return this.parsePostfix();
   }
 
   parsePostfix() {
     let expr = this.parsePrimary();
-    while (this.check(TT.DOT)) {
-      this.advance();
-      const field = this.expect(TT.IDENT).value;
-      expr = { kind:'FieldAccess', object:expr, field };
+    while (true) {
+      if (this.check(TT.DOT)) {
+        this.advance();
+        const field = this.expect(TT.IDENT).value;
+        expr = { kind:'FieldAccess', object:expr, field };
+      } else if (this.check(TT.LBRACKET)) {
+        this.advance();
+        const index = this.parseExpr();
+        this.expect(TT.RBRACKET);
+        expr = { kind:'Index', array:expr, index };
+      } else break;
     }
     return expr;
   }
@@ -339,10 +396,23 @@ class Parser {
       return expr;
     }
 
+    // Array literal: [1, 2, 3]
+    if (t.type === TT.LBRACKET) {
+      this.advance();
+      const elements = [];
+      while (!this.check(TT.RBRACKET) && !this.check(TT.EOF)) {
+        elements.push(this.parseExpr());
+        this.eat(TT.COMMA);
+      }
+      this.expect(TT.RBRACKET);
+      return { kind:'ArrayLit', elements };
+    }
+
     if (t.type === TT.IDENT) {
       this.advance();
       const name = t.value;
 
+      // Function call
       if (this.check(TT.LPAREN)) {
         this.advance();
         const args = [];
@@ -354,11 +424,8 @@ class Parser {
         return { kind:'Call', name, args };
       }
 
-      // FIX: only treat IDENT { as a pod init when it is a registered pod name.
-      // Without this guard, expressions like (x < y) where y is followed by a
-      // block-opening { (e.g. the then-body of an if) would be mis-parsed as a
-      // pod initialiser, consuming the { and crashing on the missing colon.
-      if (this.check(TT.LBRACE) && this.knownPods.has(name)) {
+      // Pod init: only when name starts with uppercase (matches compiler convention)
+      if (this.check(TT.LBRACE) && /^[A-Z]/.test(name)) {
         this.advance();
         const fields = [];
         while (!this.check(TT.RBRACE) && !this.check(TT.EOF)) {
@@ -379,6 +446,18 @@ class Parser {
   }
 }
 
+function opPrec(op) {
+  switch (op) {
+    case 'Or':  return 1;
+    case 'And': return 2;
+    case 'Eq': case 'NotEq': return 3;
+    case 'Lt': case 'Gt': case 'LtEq': case 'GtEq': return 4;
+    case 'Add': case 'Sub': return 5;
+    case 'Mul': case 'Div': case 'Mod': return 6;
+    default: return 0;
+  }
+}
+
 // ---- INTERPRETER ----
 
 class ReturnSignal { constructor(value) { this.value = value; } }
@@ -389,12 +468,10 @@ class Interpreter {
     this.funcs  = {};
     this.output = outputFn;
     this.input  = inputFn;
+    this.mutableVars = new WeakMap();
 
-    // FIX 3: track mutability — store which variable names were declared with 'mut'
-    this.mutableVars = new WeakMap(); // env object → Set of mutable names
-
-    for (const pod of program.pods)  this.pods[pod.name]  = pod.fields.map(f => f.name);
-    for (const fn  of program.functions) this.funcs[fn.name] = fn;
+    for (const pod of program.pods)       this.pods[pod.name]  = pod.fields.map(f => f.name);
+    for (const fn  of program.functions)  this.funcs[fn.name]  = fn;
   }
 
   async run() {
@@ -402,13 +479,12 @@ class Interpreter {
     await this.callFunction(this.funcs['main'], [], {});
   }
 
-  async callFunction(fn, argValues, _outerEnv) {
-    // Functions get a fresh flat env (no prototype chain across function calls)
+  async callFunction(fn, argValues, _outer) {
     const env = {};
     this.mutableVars.set(env, new Set());
     fn.params.forEach((p, i) => {
       env[p.name] = argValues[i];
-      this.mutableVars.get(env).add(p.name); // params are reassignable inside the fn
+      this.mutableVars.get(env).add(p.name);
     });
     try {
       await this.execBlock(fn.body, env);
@@ -419,15 +495,12 @@ class Interpreter {
     return null;
   }
 
-  // FIX 4: scope chain for blocks uses prototype inheritance but assignment
-  // must walk the chain to find the *owning* frame and write there, not shadow.
-  makeChildEnv(parentEnv) {
-    const child = Object.create(parentEnv);
+  makeChildEnv(parent) {
+    const child = Object.create(parent);
     this.mutableVars.set(child, new Set());
     return child;
   }
 
-  // Walk up prototype chain to find which env owns a variable
   findOwner(env, name) {
     let e = env;
     while (e !== null) {
@@ -445,7 +518,6 @@ class Interpreter {
     switch (stmt.kind) {
       case 'Let': {
         env[stmt.name] = await this.evalExpr(stmt.value, env);
-        // let = not mutable, don't add to mutableVars set
         break;
       }
       case 'Mut': {
@@ -454,13 +526,10 @@ class Interpreter {
         break;
       }
       case 'Assign': {
-        // FIX 4: find the frame that owns this variable and write there
         const owner = this.findOwner(env, stmt.name);
         if (!owner) throw new Error(`Undefined variable '${stmt.name}'`);
-        // Check mutability — walk up to find the declaring frame's mut set
-        let declFrame = owner;
-        const isMut = this.mutableVars.get(declFrame)?.has(stmt.name);
-        if (!isMut) throw new Error(`Cannot reassign immutable variable '${stmt.name}' (declared with 'let')`);
+        if (!this.mutableVars.get(owner)?.has(stmt.name))
+          throw new Error(`Cannot reassign immutable variable '${stmt.name}' (declared with 'let')`);
         owner[stmt.name] = await this.evalExpr(stmt.value, env);
         break;
       }
@@ -468,18 +537,25 @@ class Interpreter {
         const owner = this.findOwner(env, stmt.object);
         if (!owner) throw new Error(`Undefined variable '${stmt.object}'`);
         const obj = owner[stmt.object];
-        if (obj == null || typeof obj !== 'object') throw new Error(`'${stmt.object}' is not a pod`);
+        if (obj == null || typeof obj !== 'object' || Array.isArray(obj))
+          throw new Error(`'${stmt.object}' is not a pod`);
         obj[stmt.field] = await this.evalExpr(stmt.value, env);
         break;
       }
-      case 'Bark': {
-        const val = await this.evalExpr(stmt.expr, env);
-        this.output(this.display(val), 'value');
+      case 'AssignIndex': {
+        const owner = this.findOwner(env, stmt.name);
+        if (!owner) throw new Error(`Undefined variable '${stmt.name}'`);
+        if (!this.mutableVars.get(owner)?.has(stmt.name))
+          throw new Error(`Cannot mutate elements of immutable array '${stmt.name}'`);
+        const arr = owner[stmt.name];
+        if (!Array.isArray(arr)) throw new Error(`'${stmt.name}' is not an array`);
+        const idx = await this.evalExpr(stmt.index, env);
+        if (idx < 0 || idx >= arr.length) throw new Error(`Index ${idx} out of bounds for array of length ${arr.length}`);
+        arr[idx] = await this.evalExpr(stmt.value, env);
         break;
       }
       case 'Return': {
-        const val = await this.evalExpr(stmt.expr, env);
-        throw new ReturnSignal(val);
+        throw new ReturnSignal(await this.evalExpr(stmt.expr, env));
       }
       case 'If': {
         const cond = await this.evalExpr(stmt.condition, env);
@@ -531,9 +607,24 @@ class Interpreter {
         throw new Error(`Undefined variable '${expr.name}'`);
       }
 
+      case 'ArrayLit': {
+        const elems = [];
+        for (const e of expr.elements) elems.push(await this.evalExpr(e, env));
+        return elems;
+      }
+
+      case 'Index': {
+        const arr = await this.evalExpr(expr.array, env);
+        const idx = await this.evalExpr(expr.index, env);
+        if (!Array.isArray(arr)) throw new Error('Indexing a non-array value');
+        if (idx < 0 || idx >= arr.length) throw new Error(`Index ${idx} out of bounds (length ${arr.length})`);
+        return arr[idx];
+      }
+
       case 'FieldAccess': {
         const obj = await this.evalExpr(expr.object, env);
-        if (obj == null || typeof obj !== 'object') throw new Error(`Cannot access field '${expr.field}' on a non-pod value`);
+        if (obj == null || typeof obj !== 'object' || Array.isArray(obj))
+          throw new Error(`Cannot access field '${expr.field}' on a non-pod value`);
         if (!(expr.field in obj)) throw new Error(`Pod has no field '${expr.field}'`);
         return obj[expr.field];
       }
@@ -547,31 +638,29 @@ class Interpreter {
         return instance;
       }
 
+      case 'Not': {
+        return !(await this.evalExpr(expr.expr, env));
+      }
+
       case 'BinOp': {
         const l = await this.evalExpr(expr.left,  env);
         const r = await this.evalExpr(expr.right, env);
         switch (expr.op) {
-          case '+':  return (typeof l === 'string' || typeof r === 'string') ? String(l) + String(r) : l + r;
-          case '-':  return l - r;
-          case '*':  return l * r;
-          case '/':  if (r === 0) throw new Error('Division by zero'); return l / r;
-          case '==': return l === r;
-          case '!=': return l !== r;
-          case '<':  return l < r;
-          case '>':  return l > r;
-          case '<=': return l <= r;
-          case '>=': return l >= r;
-          case '&&': return l && r;
-          case '||': return l || r;
-          default:   throw new Error(`Unknown operator: ${expr.op}`);
+          case 'Add':   return (typeof l === 'string' || typeof r === 'string') ? String(l) + String(r) : l + r;
+          case 'Sub':   return l - r;
+          case 'Mul':   return l * r;
+          case 'Div':   if (r === 0) throw new Error('Division by zero'); return l / r;
+          case 'Mod':   if (r === 0) throw new Error('Modulo by zero');   return l % r;
+          case 'Eq':    return l === r;
+          case 'NotEq': return l !== r;
+          case 'Lt':    return l < r;
+          case 'Gt':    return l > r;
+          case 'LtEq':  return l <= r;
+          case 'GtEq':  return l >= r;
+          case 'And':   return l && r;
+          case 'Or':    return l || r;
+          default: throw new Error(`Unknown operator: ${expr.op}`);
         }
-      }
-
-      case 'Unary': {
-        const val = await this.evalExpr(expr.expr, env);
-        if (expr.op === '!') return !val;
-        if (expr.op === '-') return -val;
-        throw new Error(`Unknown unary op: ${expr.op}`);
       }
 
       case 'Call':
@@ -583,13 +672,14 @@ class Interpreter {
   }
 
   async callBuiltinOrUser(name, argExprs, env) {
-    // FIX 1: bark is now a regular built-in function, not a keyword.
-    // It works in all positions: statement, expression, nested call argument.
+    // --- Output ---
     if (name === 'bark') {
       const val = await this.evalExpr(argExprs[0], env);
       this.output(this.display(val), 'value');
       return null;
     }
+
+    // --- Input ---
     if (name === 'fish') {
       const prompt = argExprs.length ? this.display(await this.evalExpr(argExprs[0], env)) : '';
       return await this.input(prompt, 'str');
@@ -608,11 +698,30 @@ class Interpreter {
       if (isNaN(n)) throw new Error(`fish_float: '${raw}' is not a number`);
       return n;
     }
-    if (name === 'int')   { return parseInt(await this.evalExpr(argExprs[0], env), 10); }
-    if (name === 'float') { return parseFloat(await this.evalExpr(argExprs[0], env)); }
-    if (name === 'str')   { return String(await this.evalExpr(argExprs[0], env)); }
-    if (name === 'bool')  { return Boolean(await this.evalExpr(argExprs[0], env)); }
 
+    // --- Type casts ---
+    if (name === 'int')   return Math.trunc(await this.evalExpr(argExprs[0], env));
+    if (name === 'float') return parseFloat(await this.evalExpr(argExprs[0], env));
+    if (name === 'str')   return String(await this.evalExpr(argExprs[0], env));
+    if (name === 'bool')  return Boolean(await this.evalExpr(argExprs[0], env));
+
+    // --- Math builtins ---
+    if (name === 'sqrt')    return Math.sqrt(await this.evalExpr(argExprs[0], env));
+    if (name === 'pow')     { const base = await this.evalExpr(argExprs[0], env); const exp = await this.evalExpr(argExprs[1], env); return Math.pow(base, exp); }
+    if (name === 'abs_int') return Math.abs(Math.trunc(await this.evalExpr(argExprs[0], env)));
+    if (name === 'floor')   return Math.floor(await this.evalExpr(argExprs[0], env));
+    if (name === 'ceil')    return Math.ceil(await this.evalExpr(argExprs[0], env));
+    if (name === 'min_int') { const a = await this.evalExpr(argExprs[0], env); const b = await this.evalExpr(argExprs[1], env); return Math.min(a, b); }
+    if (name === 'max_int') { const a = await this.evalExpr(argExprs[0], env); const b = await this.evalExpr(argExprs[1], env); return Math.max(a, b); }
+
+    // --- Array builtins ---
+    if (name === 'len') {
+      const val = await this.evalExpr(argExprs[0], env);
+      if (!Array.isArray(val)) throw new Error('len() requires an array');
+      return val.length;
+    }
+
+    // --- User-defined function ---
     const fn = this.funcs[name];
     if (!fn) throw new Error(`Undefined function '${name}'`);
     const argValues = [];
@@ -628,6 +737,7 @@ class Interpreter {
 
   display(val) {
     if (val === null || val === undefined) return 'void';
+    if (Array.isArray(val)) return '[' + val.map(v => this.display(v)).join(', ') + ']';
     if (typeof val === 'object' && val.__pod__) {
       const fields = Object.entries(val)
         .filter(([k]) => k !== '__pod__')
@@ -641,7 +751,6 @@ class Interpreter {
 }
 
 // ---- EXAMPLES ----
-// FIX 5: 'loop' example used 'let' for sum then tried to reassign it — changed to 'mut'
 
 const EXAMPLES = {
   hello: `~ Hello World in SealLang 🦭
@@ -734,6 +843,90 @@ dive main() {
 
     let score: float = fish_float("Enter a score: ")
     bark("Score: {score}")
+}`,
+
+  arrays: `~ Arrays in SealLang
+
+dive main() {
+    let nums: int[] = [10, 20, 30, 40, 50]
+    bark(nums[0])
+    bark(nums[4])
+
+    swim i in 0..5 {
+        bark(nums[i])
+    }
+
+    mut scores: int[] = [1, 2, 3]
+    scores[1] = 99
+    bark(scores[1])
+
+    let temps: float[] = [98.6, 37.0, 100.4]
+    bark(temps[0])
+}`,
+
+  fibonacci: `~ Fibonacci (recursive)
+
+dive fib(n: int) -> int {
+    if n <= 1 {
+        surface n
+    }
+    surface fib(n - 1) + fib(n - 2)
+}
+
+dive main() {
+    swim i in 0..10 {
+        bark(fib(i))
+    }
+}`,
+
+  math: `~ Math builtins
+
+dive main() {
+    let a: int = 17 % 5
+    bark(a)
+
+    let b: float = sqrt(144.0)
+    bark(b)
+
+    let c: float = pow(2.0, 10.0)
+    bark(c)
+
+    let d: int = abs_int(-42)
+    bark(d)
+
+    let e: int = floor(3.9)
+    let f: int = ceil(3.1)
+    bark(e)
+    bark(f)
+
+    let g: int = min_int(10, 20)
+    let h: int = max_int(10, 20)
+    bark(g)
+    bark(h)
+}`,
+
+  logic: `~ else if and ! operator
+
+dive main() {
+    let score: int = 85
+
+    if score >= 90 {
+        bark("Grade: A")
+    } else if score >= 80 {
+        bark("Grade: B")
+    } else if score >= 70 {
+        bark("Grade: C")
+    } else {
+        bark("Grade: F")
+    }
+
+    let passing: bool = score >= 70
+    let failing: bool = !passing
+    if failing {
+        bark("You are failing!")
+    } else {
+        bark("You are passing!")
+    }
 }`,
 };
 
