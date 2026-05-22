@@ -865,18 +865,21 @@
       bark(temps[0])
   }`,
 
-    fibonacci: `~ Fibonacci (recursive)
-
+    fibonacci: `~ Fibonacci sequence using recursion
+  
   dive fib(n: int) -> int {
       if n <= 1 {
           surface n
       }
       surface fib(n - 1) + fib(n - 2)
   }
-
+  
   dive main() {
-      swim i in 0..10 {
-          bark(fib(i))
+      let terms: int = fish_int("How many fibonacci numbers? ")
+  
+      swim i in 0..terms {
+          let result: int = fib(i)
+          bark(result)
       }
   }`,
 
@@ -1143,7 +1146,7 @@
     const key = picker.value;
     if (key && EXAMPLES[key]) {
       editor.value = EXAMPLES[key];
-      editor.dispatchEvent(new Event('input'));
+      if (window.sealRefreshHighlight) window.sealRefreshHighlight();
       clearOutput();
       setStatus('Ready', 'ok');
     }
