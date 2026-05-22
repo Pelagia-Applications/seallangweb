@@ -1143,6 +1143,7 @@
     const key = picker.value;
     if (key && EXAMPLES[key]) {
       editor.value = EXAMPLES[key];
+      editor.dispatchEvent(new Event('input'));
       clearOutput();
       setStatus('Ready', 'ok');
     }
