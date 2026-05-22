@@ -221,4 +221,12 @@
     initHighlighter();
   }
 
+  // Expose a global so other scripts can trigger a highlight refresh
+  window.sealRefreshHighlight = function() {
+    const textarea = document.getElementById('editor');
+    const layer    = document.getElementById('highlightLayer');
+    if (textarea && layer) layer.innerHTML = highlight(textarea.value) + '
+';
+  };
+
 })();
