@@ -227,8 +227,7 @@
   window.sealRefreshHighlight = function() {
     const textarea = document.getElementById('editor');
     const layer    = document.getElementById('highlightLayer');
-    if (textarea && layer) layer.innerHTML = highlight(textarea.value) + '
-';
+    if (textarea && layer) layer.innerHTML = highlight(textarea.value) + '\n';
   };
 
 })();
