@@ -195,7 +195,7 @@
     function update() {
       // Append a trailing newline so the layer height matches the textarea
       // when the last line is empty.
-      layer.innerHTML = highlight(textarea.value) + '\n';
+      layer.innerHTML = highlight(textarea.value) + '\\n';
     }
 
     // Sync scroll position
@@ -227,7 +227,7 @@
   window.sealRefreshHighlight = function() {
     const textarea = document.getElementById('editor');
     const layer    = document.getElementById('highlightLayer');
-    if (textarea && layer) layer.innerHTML = highlight(textarea.value) + '\n';
+    if (textarea && layer) layer.innerHTML = highlight(textarea.value) + '\\n';
   };
 
 })();
