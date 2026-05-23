@@ -304,7 +304,7 @@ kbd {
   font-size: 0.82rem;
   line-height: 1.6;
   background: transparent;
-  color: transparent;
+  color: #c8d0e8;  /* fallback — overridden to transparent when highlight layer is active */
   caret-color: #ffffffcc;
   border: none;
   outline: none;
