@@ -212,6 +212,8 @@
 
     // Initial render
     update();
+    // Now that the layer is active, hide the raw textarea text
+    textarea.style.color = "transparent";
   }
 
   // Run after DOM is ready
